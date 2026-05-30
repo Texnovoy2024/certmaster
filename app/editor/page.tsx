@@ -196,11 +196,16 @@ function EditorPage() {
       // Save record to DB
       const textEls = elements.filter(e => e.type === "text");
       const mainText = textEls.length > 0 ? textEls[0].text : "Foydalanuvchi";
-      await fetch("/api/certificate", {
+      const resp = await fetch("/api/certificate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ id: certId, recipient: mainText, elements })
       });
+      const res = await resp.json();
+      if (!res.success) {
+        alert("Saqlashda xatolik: " + (res.error || "Noma'lum xato"));
+        return; // Don't proceed to download if save failed
+      }
 
       const canvas = await buildExportCanvas();
       if (!canvas) return;
@@ -238,7 +243,7 @@ function EditorPage() {
     try {
       const textEls = elements.filter(e => e.type === "text");
       const mainText = textEls.length > 0 ? textEls[0].text : "Yangi Shablon";
-      await fetch("/api/certificate", {
+      const resp = await fetch("/api/certificate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -246,10 +251,15 @@ function EditorPage() {
           elements, isTemplate: true, templateUrl: background
         })
       });
-      alert("Shablon bazaga saqlandi!");
-      router.push("/dashboard");
-    } catch(err) {
-      alert("Xatolik yuz berdi");
+      const res = await resp.json();
+      if (res.success) {
+        alert("Shablon bazaga saqlandi!");
+        router.push("/dashboard");
+      } else {
+        alert("Xatolik: " + (res.error || "Noma'lum xato"));
+      }
+    } catch(err: any) {
+      alert("Tarmoq xatosi: " + err.message);
     }
   };
 

@@ -26,8 +26,12 @@ export async function POST(req: Request) {
     }
 
     return NextResponse.json({ success: true, id: cert.id });
-  } catch (error) {
-    console.error("CERT_SAVE_ERROR", error);
-    return NextResponse.json({ success: false, error: "Xatolik yuz berdi" }, { status: 500 });
+  } catch (error: any) {
+    console.error("CERT_SAVE_ERROR:", error);
+    return NextResponse.json({ 
+      success: false, 
+      error: error.message || "Xatolik yuz berdi",
+      details: error.code || "UNKNOWN"
+    }, { status: 500 });
   }
 }
