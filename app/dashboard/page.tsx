@@ -2,6 +2,8 @@ import { PrismaClient } from "@prisma/client";
 import Link from "next/link";
 import ClearHistoryButton from "./ClearHistoryButton";
 
+export const dynamic = "force-dynamic";
+
 export default async function DashboardPage() {
   const db = new PrismaClient();
   const certificates = await db.certificate.findMany({
