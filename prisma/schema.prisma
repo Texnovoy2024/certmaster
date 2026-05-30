@@ -1,0 +1,20 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Certificate {
+  id           String   @id @default(uuid())
+  recipient    String   //@ Default name or main text identifier
+  issuer       String   @default("Platforma")
+  issueDate    DateTime @default(now())
+  templateUrl  String?
+  elementsData String   // JSON string of dimensions and texts
+  qrCodeUrl    String?
+  isTemplate   Boolean  @default(false)
+  createdAt    DateTime @default(now())
+}
