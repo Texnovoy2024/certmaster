@@ -47,12 +47,18 @@ function EditorPage() {
     setMounted(true);
     
     if (loadId) {
-      setCertId(loadId);
       setIsLoading(true);
       fetch(`/api/certificate/${loadId}`)
         .then(r => r.json())
         .then(res => {
           if (res.success && res.data) {
+            // Agar bu shablon bo'lsa, yangi ID beramizki, saqlaganda shablonni ustidan yozib yubormasin
+            if (res.data.isTemplate) {
+              setCertId(crypto.randomUUID ? crypto.randomUUID() : Date.now().toString());
+            } else {
+              setCertId(loadId);
+            }
+            
             if (res.data.templateUrl) setBackground(res.data.templateUrl);
             if (res.data.elementsData) {
               try { setElements(JSON.parse(res.data.elementsData)); } catch(e){}

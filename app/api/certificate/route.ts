@@ -1,10 +1,9 @@
 import { NextResponse } from 'next/server';
-import { PrismaClient } from '@prisma/client';
+import prisma from "../../../lib/prisma";
 
 export async function POST(req: Request) {
   try {
     const data = await req.json();
-    const db = new PrismaClient();
     
     const certData = {
       recipient: data.recipient || 'Nomaʼlum',
@@ -17,13 +16,13 @@ export async function POST(req: Request) {
 
     let cert;
     if (data.id) {
-      cert = await db.certificate.upsert({
+      cert = await prisma.certificate.upsert({
         where: { id: data.id },
         update: certData,
         create: { ...certData, id: data.id }
       });
     } else {
-      cert = await db.certificate.create({ data: certData });
+      cert = await prisma.certificate.create({ data: certData });
     }
 
     return NextResponse.json({ success: true, id: cert.id });
