@@ -1,15 +1,22 @@
-import { PrismaClient } from "@prisma/client";
+import prisma from "../../lib/prisma";
 import Link from "next/link";
 import ClearHistoryButton from "./ClearHistoryButton";
 
 export const dynamic = "force-dynamic";
 
 export default async function DashboardPage() {
-  const db = new PrismaClient();
-  const certificates = await db.certificate.findMany({
-    orderBy: { createdAt: "desc" },
-    take: 40
-  }) as any[]; // Type cast for simplicity if types are disconnected
+  let certificates: any[] = [];
+  let errorMsg = null;
+
+  try {
+    certificates = await prisma.certificate.findMany({
+      orderBy: { createdAt: "desc" },
+      take: 40
+    });
+  } catch (err: any) {
+    console.error("Dashboard DB Error:", err);
+    errorMsg = err.message || "Ma'lumotlar bazasiga ulanishda xatolik yuz berdi.";
+  }
 
   const templates = certificates.filter((c: any) => c.isTemplate);
   const userCerts = certificates.filter((c: any) => !c.isTemplate);
@@ -17,6 +24,14 @@ export default async function DashboardPage() {
   return (
     <div className="container mt-10 mb-20">
       
+      {errorMsg && (
+        <div className="glass-panel p-6 mb-10 border border-red-500/50 bg-red-900/20" style={{ color: '#ff8888' }}>
+          <h3 className="text-xl font-bold mb-2">Ma'lumotlar Bazasida Xatolik</h3>
+          <p className="opacity-80 mb-4 text-sm font-mono" style={{ background: 'rgba(0,0,0,0.3)', padding: '10px', borderRadius: '4px' }}>{errorMsg}</p>
+          <p className="text-sm">Iltimos, Vercel sozlamalarida <b>DATABASE_URL</b> to'g'ri ko'rsatilganligini va bazaga ruxsat borligini tekshiring.</p>
+        </div>
+      )}
+
       {/* SHABLONLAR QISMI */}
       <div className="flex justify-between items-center mb-6">
         <h2 style={{ fontSize: '28px' }}>Tayyor Shablonlar</h2>
@@ -60,7 +75,7 @@ export default async function DashboardPage() {
             <div key={cert.id} className="glass-panel" style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
               <div style={{ fontSize: '18px', fontWeight: 600, color: 'white' }}>{cert.recipient}</div>
               <div style={{ fontSize: '14px', color: 'var(--text-secondary)' }}>Beruvchi: {cert.issuer}</div>
-              <div style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>Sana: {cert.createdAt.toLocaleDateString('uz-UZ')}</div>
+              <div style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>Sana: {new Date(cert.createdAt).toLocaleDateString('uz-UZ')}</div>
               <div style={{ fontSize: '12px', background: 'rgba(255,255,255,0.05)', padding: '6px', borderRadius: '4px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                 ID: {cert.id}
               </div>
