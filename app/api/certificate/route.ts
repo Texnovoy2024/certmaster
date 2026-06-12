@@ -10,17 +10,24 @@ export async function POST(req: Request) {
       issuer: data.issuer || 'CertMaster',
       qrCodeUrl: (data.qrCodeUrl !== undefined) ? data.qrCodeUrl : '',
       elementsData: JSON.stringify(data.elements || []),
-      isTemplate: Boolean(data.isTemplate),
+      isTemplate: false, // foydalanuvchi sertifikatlari hech qachon shablon bo'lmaydi
       templateUrl: data.templateUrl || null
     };
 
     let cert;
     if (data.id) {
-      cert = await prisma.certificate.upsert({
-        where: { id: data.id },
-        update: certData,
-        create: { ...certData, id: data.id }
-      });
+      // Avval tekshiramiz: bu ID shablon bo'lsa, yangi yozuv yaratamiz
+      const existing = await prisma.certificate.findUnique({ where: { id: data.id } });
+      if (existing?.isTemplate) {
+        // Shablon ustiga yozmaslik — yangi yozuv yaratamiz
+        cert = await prisma.certificate.create({ data: certData });
+      } else {
+        cert = await prisma.certificate.upsert({
+          where: { id: data.id },
+          update: certData,
+          create: { ...certData, id: data.id }
+        });
+      }
     } else {
       cert = await prisma.certificate.create({ data: certData });
     }

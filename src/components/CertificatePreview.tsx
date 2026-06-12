@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { QRCodeSVG } from "qrcode.react";
 
 interface ElementType {
   id: string;
@@ -20,12 +21,18 @@ interface ElementType {
 interface CertificatePreviewProps {
   templateUrl: string | null;
   elementsData: string;
+  certId?: string;
 }
 
-export default function CertificatePreview({ templateUrl, elementsData }: CertificatePreviewProps) {
+export default function CertificatePreview({ templateUrl, elementsData, certId }: CertificatePreviewProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [scale, setScale] = useState(0.3);
   const [elements, setElements] = useState<ElementType[]>([]);
+  const [origin, setOrigin] = useState("");
+
+  useEffect(() => {
+    setOrigin(window.location.origin);
+  }, []);
 
   useEffect(() => {
     try {
@@ -38,10 +45,8 @@ export default function CertificatePreview({ templateUrl, elementsData }: Certif
   useEffect(() => {
     const updateScale = () => {
       if (containerRef.current) {
-        // We assume the original editor width was roughly 800px-1000px
-        // For a preview, we scale everything down relative to our actual container width
         const currentWidth = containerRef.current.offsetWidth;
-        const BASE_WIDTH = 800; // Expected base width from editor
+        const BASE_WIDTH = 800;
         setScale(currentWidth / BASE_WIDTH);
       }
     };
@@ -81,17 +86,26 @@ export default function CertificatePreview({ templateUrl, elementsData }: Certif
           >
             {el.type === "text" ? (
               el.text
+            ) : el.type === "qr" && certId ? (
+              <QRCodeSVG
+                value={`${origin}/verify/${certId}`}
+                size={el.width || 120}
+                bgColor="#ffffff"
+                fgColor="#000000"
+              />
             ) : el.type === "qr" ? (
-              <div style={{ 
-                width: `${el.width || 120}px`, 
-                height: `${el.height || 120}px`, 
-                background: "#333",
+              // QR placeholder when no certId (e.g. template preview)
+              <div style={{
+                width: `${el.width || 120}px`,
+                height: `${el.height || 120}px`,
+                background: "white",
+                border: "1px solid #ccc",
                 borderRadius: "4px",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
-                fontSize: "12px",
-                color: "#666"
+                fontSize: "11px",
+                color: "#888",
               }}>
                 QR
               </div>

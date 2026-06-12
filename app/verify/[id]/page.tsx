@@ -35,7 +35,7 @@ export default async function VerifyCertificatePage(props: { params: Promise<{ i
         {/* Visual Certificate Preview */}
         {cert.templateUrl && (
           <div style={{ marginBottom: '32px', borderRadius: '12px', overflow: 'hidden', border: '1px solid rgba(16,185,129,0.2)', boxShadow: '0 0 40px rgba(16,185,129,0.08)' }}>
-            <CertificatePreview templateUrl={cert.templateUrl} elementsData={cert.elementsData} />
+            <CertificatePreview templateUrl={cert.templateUrl} elementsData={cert.elementsData} certId={cert.id} />
           </div>
         )}
         

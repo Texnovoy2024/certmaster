@@ -91,7 +91,7 @@ export default async function DashboardPage() {
             <div key={cert.id} className="glass-panel cert-history-card" style={{ padding: '24px' }}>
               {/* Visual Preview */}
               <div style={{ width: '100%', marginBottom: '20px' }}>
-                <CertificatePreview templateUrl={cert.templateUrl} elementsData={cert.elementsData} />
+                <CertificatePreview templateUrl={cert.templateUrl} elementsData={cert.elementsData} certId={cert.id} />
               </div>
 
               <div className="flex flex-col gap-3">
