@@ -59,7 +59,8 @@ export default async function DashboardPage() {
               </div>
 
               <div style={{ width: '100%', marginBottom: '16px' }}>
-                <CertificatePreview templateUrl={cert.templateUrl} elementsData={cert.elementsData} />
+                {/* Shablonlar uchun faqat toza fon ko'rsatiladi, elementlar yo'q */}
+                <CertificatePreview templateUrl={cert.templateUrl} elementsData="[]" />
               </div>
 
               <Link href={`/editor?load=${cert.id}`} className="btn btn-secondary w-full justify-center" style={{ backdropFilter: 'none' }}>
