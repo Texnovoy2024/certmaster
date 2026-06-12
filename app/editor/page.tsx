@@ -2,9 +2,9 @@
 
 import { useState, useRef, useEffect, Suspense } from "react";
 import { Rnd } from "react-rnd";
-import html2canvas from "html2canvas";
 import { QRCodeSVG } from "qrcode.react";
 import { useSearchParams, useRouter } from "next/navigation";
+import Notification, { NotificationType } from "@/components/Notification";
 
 export default function EditorPageWrapper() {
   return (
@@ -37,6 +37,16 @@ function EditorPage() {
   const [certId, setCertId] = useState<string>("");
   const [isLoading, setIsLoading] = useState(false);
   const [exportFormat, setExportFormat] = useState<"png" | "jpg" | "pdf">("png");
+  
+  const [notification, setNotification] = useState<{
+    message: string;
+    type: NotificationType;
+    isVisible: boolean;
+  }>({ message: "", type: "info", isVisible: false });
+
+  const showNotification = (message: string, type: NotificationType = "info") => {
+    setNotification({ message, type, isVisible: true });
+  };
 
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -52,13 +62,11 @@ function EditorPage() {
         .then(r => r.json())
         .then(res => {
           if (res.success && res.data) {
-            // Agar bu shablon bo'lsa, yangi ID beramizki, saqlaganda shablonni ustidan yozib yubormasin
             if (res.data.isTemplate) {
               setCertId(crypto.randomUUID ? crypto.randomUUID() : Date.now().toString());
             } else {
               setCertId(loadId);
             }
-            
             if (res.data.templateUrl) setBackground(res.data.templateUrl);
             if (res.data.elementsData) {
               try { setElements(JSON.parse(res.data.elementsData)); } catch(e){}
@@ -143,7 +151,7 @@ function EditorPage() {
     const ctx = canvas.getContext("2d")!;
     ctx.scale(SCALE, SCALE);
 
-    // 1. Draw background image
+    // 1. Draw background
     const bgImg = new Image();
     bgImg.crossOrigin = "anonymous";
     bgImg.src = background;
@@ -153,7 +161,7 @@ function EditorPage() {
     });
     ctx.drawImage(bgImg, 0, 0, W, H);
 
-    // 2. Draw each element in order
+    // 2. Draw each element
     for (const el of elements) {
       if (el.type === "text" && el.text) {
         ctx.save();
@@ -174,11 +182,11 @@ function EditorPage() {
         ctx.drawImage(img, el.x, el.y, el.width || 120, el.height || 120);
 
       } else if (el.type === "qr") {
-        // Use qrcode library's toCanvas for a clean QR code render
         const QRCode = (await import("qrcode")).default;
         const qrCanvas = document.createElement("canvas");
         const size = el.width || 120;
-        await QRCode.toCanvas(qrCanvas, `http://localhost:3000/verify/${certId}`, {
+        const baseUrl = typeof window !== "undefined" ? window.location.origin : "";
+        await QRCode.toCanvas(qrCanvas, `${baseUrl}/verify/${certId}`, {
           width: size,
           margin: 1,
           color: { dark: "#000000", light: "#ffffff" },
@@ -193,18 +201,17 @@ function EditorPage() {
   const downloadCertificate = async () => {
     if (!background) return;
     try {
-      // Save record to DB
       const textEls = elements.filter(e => e.type === "text");
       const mainText = textEls.length > 0 ? textEls[0].text : "Foydalanuvchi";
       const resp = await fetch("/api/certificate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id: certId, recipient: mainText, elements })
+        body: JSON.stringify({ id: certId, recipient: mainText, issuer: "CertMaster", elements, templateUrl: background, isTemplate: false })
       });
       const res = await resp.json();
       if (!res.success) {
-        alert("Saqlashda xatolik: " + (res.error || "Noma'lum xato"));
-        return; // Don't proceed to download if save failed
+        showNotification("Saqlashda xatolik: " + (res.error || "Noma'lum xato"), "error");
+        return;
       }
 
       const canvas = await buildExportCanvas();
@@ -215,13 +222,11 @@ function EditorPage() {
         link.href = canvas.toDataURL("image/png");
         link.download = `sertifikat-${certId.substring(0, 6)}.png`;
         link.click();
-
       } else if (exportFormat === "jpg") {
         const link = document.createElement("a");
         link.href = canvas.toDataURL("image/jpeg", 0.97);
         link.download = `sertifikat-${certId.substring(0, 6)}.jpg`;
         link.click();
-
       } else if (exportFormat === "pdf") {
         const { jsPDF } = await import("jspdf");
         const imgData = canvas.toDataURL("image/jpeg", 0.97);
@@ -230,11 +235,10 @@ function EditorPage() {
         pdf.save(`sertifikat-${certId.substring(0, 6)}.pdf`);
       }
 
-      // Redirect to verification page
       router.push(`/verify/${certId}`);
     } catch (err) {
       console.error(err);
-      alert("Eksport vaqtida xatolik yuz berdi.");
+      showNotification("Eksport vaqtida xatolik yuz berdi.", "error");
     }
   };
 
@@ -248,18 +252,18 @@ function EditorPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           id: certId, recipient: mainText, issuer: "CertMaster",
-          elements, isTemplate: true, templateUrl: background
+          elements, isTemplate: false, templateUrl: background
         })
       });
       const res = await resp.json();
       if (res.success) {
-        alert("Shablon bazaga saqlandi!");
-        router.push("/dashboard");
+        showNotification("Sertifikat tahrir tarixiga saqlandi!", "success");
+        setTimeout(() => router.push("/dashboard"), 1500);
       } else {
-        alert("Xatolik: " + (res.error || "Noma'lum xato"));
+        showNotification("Xatolik: " + (res.error || "Noma'lum xato"), "error");
       }
-    } catch(err: any) {
-      alert("Tarmoq xatosi: " + err.message);
+    } catch(err) {
+      showNotification("Xatolik yuz berdi", "error");
     }
   };
 
@@ -275,7 +279,6 @@ function EditorPage() {
           Sertifikat Muharriri {isLoading && <span style={{ fontSize: '14px', color: 'var(--text-secondary)' }}>(Yuklanmoqda...)</span>}
         </h2>
 
-        {/* The certificate canvas - background is a real img tag so html2canvas captures it correctly */}
         <div
           ref={certRef}
           onClick={() => setSelectedId(null)}
@@ -289,7 +292,6 @@ function EditorPage() {
             background: background ? 'transparent' : '#f8f8f8'
           }}
         >
-          {/* Background image as real <img> tag — html2canvas captures it correctly */}
           {background && (
             <img
               src={background}
@@ -312,7 +314,6 @@ function EditorPage() {
             </div>
           )}
 
-          {/* Draggable elements layer */}
           {elements.map((el) => (
             <Rnd
               key={el.id}
@@ -354,7 +355,10 @@ function EditorPage() {
                   {el.text}
                 </span>
               ) : el.type === "qr" ? (
-                <QRCodeSVG value={`http://localhost:3000/verify/${certId}`} size={el.width || 120} />
+                <QRCodeSVG
+                  value={`${typeof window !== "undefined" ? window.location.origin : ""}/verify/${certId}`}
+                  size={el.width || 120}
+                />
               ) : el.type === "image" && el.url ? (
                 <img
                   src={el.url}
@@ -373,7 +377,7 @@ function EditorPage() {
         <h3 style={{ marginBottom: '20px' }}>Asboblar</h3>
 
         <div className="input-group">
-          <label className="input-label">Shablon Fonini O'zgartirish</label>
+          <label className="input-label">Shablon Fonini O&apos;zgartirish</label>
           <input type="file" accept="image/*" onChange={handleBackgroundUpload} className="input-field" style={{ padding: '8px' }} />
         </div>
 
@@ -383,11 +387,10 @@ function EditorPage() {
         </div>
 
         <div className="input-group mt-2">
-          <label className="input-label">E-Imzo / Shtamp (PNG) Qo'shish</label>
+          <label className="input-label">E-Imzo / Shtamp (PNG) Qo&apos;shish</label>
           <input type="file" accept="image/*" onChange={handleImageUpload} className="input-field" style={{ padding: '8px' }} />
         </div>
 
-        {/* Text element settings */}
         {selectedEl && selectedEl.type === "text" && (
           <div style={{ marginTop: '24px', paddingTop: '24px', borderTop: '1px solid var(--border-color)' }}>
             <h4 style={{ marginBottom: '16px' }}>Matn Sozlamalari</h4>
@@ -399,7 +402,7 @@ function EditorPage() {
 
             <div className="flex gap-4">
               <div className="input-group w-full">
-                <label className="input-label">O'lcham (px)</label>
+                <label className="input-label">O&apos;lcham (px)</label>
                 <input type="number" value={selectedEl.fontSize} onChange={(e) => updateElement(selectedEl.id, { fontSize: Number(e.target.value) })} className="input-field" />
               </div>
               <div className="input-group w-full">
@@ -423,7 +426,7 @@ function EditorPage() {
                 <label className="input-label">Qalinlik</label>
                 <select value={selectedEl.fontWeight} onChange={(e) => updateElement(selectedEl.id, { fontWeight: e.target.value })} className="input-field" style={{ appearance: 'none' }}>
                   <option value="400" style={{ color: 'black' }}>Normal</option>
-                  <option value="500" style={{ color: 'black' }}>O'rtacha</option>
+                  <option value="500" style={{ color: 'black' }}>O&apos;rtacha</option>
                   <option value="600" style={{ color: 'black' }}>Qalin</option>
                   <option value="700" style={{ color: 'black' }}>Juda Qalin</option>
                 </select>
@@ -431,7 +434,7 @@ function EditorPage() {
             </div>
 
             <button className="btn btn-secondary w-full mt-4" style={{ color: 'var(--danger-color)', borderColor: 'rgba(239,68,68,0.3)' }} onClick={() => removeElement(selectedEl.id)}>
-              Elementni o'chirish
+              Elementni o&apos;chirish
             </button>
           </div>
         )}
@@ -453,16 +456,13 @@ function EditorPage() {
                 key={fmt}
                 onClick={() => setExportFormat(fmt)}
                 style={{
-                  flex: 1,
-                  padding: '8px',
-                  borderRadius: '8px',
+                  flex: 1, padding: '8px', borderRadius: '8px',
                   border: `1px solid ${exportFormat === fmt ? 'var(--primary-color)' : 'var(--border-color)'}`,
                   background: exportFormat === fmt ? 'rgba(79,70,229,0.2)' : 'transparent',
                   color: exportFormat === fmt ? 'white' : 'var(--text-secondary)',
                   cursor: 'pointer',
                   fontWeight: exportFormat === fmt ? '600' : '400',
-                  textTransform: 'uppercase',
-                  fontSize: '13px',
+                  textTransform: 'uppercase', fontSize: '13px',
                 }}
               >
                 {fmt}
@@ -485,10 +485,17 @@ function EditorPage() {
             onClick={saveAsTemplate}
             disabled={!background}
           >
-            Shablon sifatida saqlash
+            Tarixga saqlash
           </button>
         </div>
       </div>
+
+      <Notification 
+        message={notification.message} 
+        type={notification.type} 
+        isVisible={notification.isVisible} 
+        onClose={() => setNotification(prev => ({ ...prev, isVisible: false }))} 
+      />
     </div>
   );
 }
